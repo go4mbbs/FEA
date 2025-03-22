@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Load-Displacement Predictor</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .slider-container { margin-bottom: 20px; }
+    .slider-label { margin-right: 10px; }
+    canvas { margin-top: 30px; }
+  </style>
+</head>
+<body>
+  <h2>Load-Displacement Curve Predictor</h2>
+  <div class="slider-container">
+    <label class="slider-label">Thickness: <span id="thickness-value">0.2</span></label>
+    <input type="range" id="thickness-slider" min="0.1" max="0.5" step="0.01" value="0.2">
+  </div>
+  <div class="slider-container">
+    <label class="slider-label">Shallowness: <span id="shallowness-value">0.5</span></label>
+    <input type="range" id="shallowness-slider" min="0.1" max="1.0" step="0.01" value="0.5">
+  </div>
+  <button onclick="predictCurve()">Generate Curve</button>
+  <canvas id="curveChart" width="800" height="400"></canvas>
+
+  <script>
+    let model;
+    const fixedLen = 100;
+
+    async function loadModel() {
+      try {
+        // =======================================
+        // CHANGED: Now uses 'model.json' directly
+        // instead of 'model_tfjs/model.json'
+        // =======================================
+        model = await tf.loadLayersModel('model.json');
+        console.log("Model loaded successfully.");
+      } catch (err) {
+        alert("Failed to load model. Make sure model.json and .bin files are in the same folder as this HTML file.");
+        console.error(err);
+      }
+    }
+
+    async function predictCurve() {
+      if (!model) {
+        alert("Model not loaded yet.");
+        return;
+      }
+
+      const t = parseFloat(document.getElementById('thickness-slider').value);
+      const s = parseFloat(document.getElementById('shallowness-slider').value);
+      document.getElementById('thickness-value').innerText = t;
+      document.getElementById('shallowness-value').innerText = s;
+
+      const stiffness = Math.pow(t, 3) / s;
+      let x = 0.0;
+      let F = 0.0;
+      const x_vals = [];
+      const F_vals = [];
+
+      for (let i = 0; i < fixedLen; i++) {
+        const input = tf.tensor2d([[t, s, stiffness, x, F]]);
+        const output = model.predict(input);
+        const result = await output.array();
+        x = result[0][0];
+        F = result[0][1];
+        x_vals.push(x);
+        F_vals.push(F);
+      }
+
+      drawChart(x_vals, F_vals);
+    }
+
+    function drawChart(x_vals, F_vals) {
+      const ctx = document.getElementById('curveChart').getContext('2d');
+      if (window.curveChart) {
+        window.curveChart.destroy();
+      }
+      window.curveChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: x_vals,
+          datasets: [{
+            label: 'Predicted Load',
+            data: F_vals,
+            borderColor: 'blue',
+            fill: false,
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { title: { display: true, text: 'Displacement' } },
+            y: { title: { display: true, text: 'Load' } }
+          }
+        }
+      });
+    }
+
+    loadModel();
+  </script>
+</body>
+</html>
