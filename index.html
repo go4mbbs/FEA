@@ -31,11 +31,8 @@
 
     async function loadModel() {
       try {
-        // =======================================
-        // CHANGED: Now uses 'model.json' directly
-        // instead of 'model_tfjs/model.json'
-        // =======================================
-        model = await tf.loadLayersModel('model.json');
+        // Load model from full relative GitHub path
+        model = await tf.loadLayersModel('./model.json');
         console.log("Model loaded successfully.");
       } catch (err) {
         alert("Failed to load model. Make sure model.json and .bin files are in the same folder as this HTML file.");
